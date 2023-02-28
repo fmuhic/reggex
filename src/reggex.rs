@@ -1,3 +1,5 @@
+use crate::parser::parse_expression;
+
 type State = [u8; STATE_SIZE];
 type FinateStateMachine = Vec<State>;
 
@@ -12,6 +14,9 @@ pub struct Reggex {
 
 impl Reggex {
     pub fn new(exp: &str) -> Reggex {
+        let tokens = parse_expression(exp);
+        println!("Tokens {:?}", tokens);
+
         let mut fsm = FinateStateMachine::new();
         for letter in exp.chars() {
             match letter {
