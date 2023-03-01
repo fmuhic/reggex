@@ -15,6 +15,7 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
             },
             None => {
                 println!("Unknown token");
+                unreachable!()
             }
         }
     }
@@ -28,7 +29,7 @@ fn parse_token(iter: &mut MultiPeek<Chars>) -> Option<Token> {
             match c {
                 ' ' | '\t' | '\n'=> None,
                 'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '^' | '$' => Some(Token::SingleMatch(c)),
-                '.' => Some(Token::RangeMatch('!' .. '~')),
+                '.' => Some(Token::RangeMatch('!' as u8 .. '~' as u8)),
                 _ => None
             }
         }

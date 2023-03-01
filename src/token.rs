@@ -4,6 +4,6 @@ use std::ops::Range;
 pub enum Token {
     SingleMatch(char),
     MultiMatch(String),
-    RangeMatch(Range<char>),
+    RangeMatch(Range<u8>),
     Complex(String)
 }
