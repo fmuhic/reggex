@@ -1,5 +1,7 @@
 use crate::parser::parse_expression;
-use crate::token::Token;
+use crate::token::{Token, MatchType};
+
+use itertools::multipeek;
 
 type FinateStateMachine = Vec<Box<dyn Matcher>>;
 
@@ -8,35 +10,53 @@ const LINE_START: usize = 128;
 const LINE_END: usize = 129;
 
 #[allow(dead_code)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum MatchResult {
-    FAILED,
-    CURRENT,
-    NEXT
+    Success,
+    Failed,
+    Repeat
 }
 
 trait Matcher {
-    fn match_char(&self, ch: char) -> MatchResult;
+    fn match_char(&self, ch: &char, prev_match: MatchResult) -> MatchResult;
 }
 
 struct StateMatcher {
-    state: [u8; STATE_SIZE]
+    state: [u8; STATE_SIZE],
+    match_type: MatchType
 }
 
 impl Matcher for StateMatcher {
-    fn match_char(&self, ch: char) -> MatchResult {
-        let state_index = match ch {
-            '^' => LINE_START,
-            '$' => LINE_END,
-            _ => ch as usize
-
-        };
-
-        if self.state[state_index] == 1 {
-            MatchResult::NEXT
-        }
-        else {
-            MatchResult::FAILED
+    fn match_char(&self, ch: &char, prev_match: MatchResult) -> MatchResult {
+        match self.match_type {
+            MatchType::Regular => {
+                if self.match_current_state(ch) {
+                    MatchResult::Success
+                } else {
+                    MatchResult::Failed
+                }
+            }
+            MatchType::NoneOrMany => {
+                if self.match_current_state(ch) {
+                    MatchResult::Repeat
+                } else {
+                    MatchResult::Success
+                }
+            }
+            MatchType::OneOrMany => {
+                match prev_match {
+                    MatchResult::Success => if self.match_current_state(ch) {
+                        MatchResult::Repeat
+                    } else {
+                        MatchResult::Failed
+                    }
+                    _ => if self.match_current_state(ch) {
+                        MatchResult::Repeat
+                    } else {
+                        MatchResult::Success
+                    }
+                }
+            }
         }
     }
 }
@@ -44,7 +64,7 @@ impl Matcher for StateMatcher {
 impl StateMatcher {
     pub fn new(token: &Token) -> StateMatcher {
         match token {
-            Token::SingleMatch(ch) => {
+            Token::SingleMatch(ch, match_type) => {
                 let state_value = match ch {
                     '^' => LINE_START,
                     '$' => LINE_END,
@@ -52,20 +72,31 @@ impl StateMatcher {
                 };
                 let mut state = [0; STATE_SIZE];
                 state[state_value] = 1;
-                StateMatcher{state}
+                StateMatcher{state, match_type: match_type.clone()}
             }
-            Token::RangeMatch(range) => {
+            Token::RangeMatch(range, match_type) => {
                 #[allow(unused_mut)]
                 let mut state: [u8; 130] = core::array::from_fn(|i| {
                     if range.contains(&(i as u8)) { 1 } else { 0 }
                 });
-                StateMatcher{state}
+                StateMatcher{state, match_type: match_type.clone()}
             }
             _ => {
                 unreachable!("Token processor not implemented");
             }
         }
     }
+
+    fn match_current_state(&self, ch: &char) -> bool {
+        let state_index = match ch {
+            '^' => LINE_START,
+            '$' => LINE_END,
+            _ => *ch as usize
+
+        };
+
+        self.state[state_index] == 1
+    } 
 }
 
 pub struct Reggex {
@@ -76,6 +107,7 @@ impl Reggex {
     pub fn new(exp: &str) -> Reggex {
         let mut fsm = FinateStateMachine::new();
         let tokens = parse_expression(exp);
+        println!("Tokens parsed: {:?}", tokens);
 
         for t in tokens {
             fsm.push(Box::new(StateMatcher::new(&t)));
@@ -87,15 +119,33 @@ impl Reggex {
     pub fn matches(&self, exp: &str) -> bool {
         let mut current_state = self.get_default_state();
 
-        for letter in exp.chars() {
+        let mut prev_match = MatchResult::Success;
+
+        let mut iter = multipeek(exp.chars());
+        while iter.peek() != None {
+            iter.reset_peek();
             if current_state >= self.fsm.len() {
                 return false;
             }
-            match self.fsm[current_state].match_char(letter) {
-                MatchResult::FAILED => return false,
-                MatchResult::NEXT => current_state += 1,
-                MatchResult::CURRENT => {}
+            let next_match = self.fsm[current_state].match_char(iter.peek().unwrap(), prev_match);
+            iter.reset_peek();
+
+            println!("matching {}, prev: {:?}, next: {:?}, state = {}", iter.peek().unwrap_or(&'x'), prev_match, next_match, current_state);
+            if prev_match == MatchResult::Repeat && next_match == MatchResult::Success {
+            } else {
+                iter.next();
             }
+
+            iter.reset_peek();
+            match next_match  {
+                MatchResult::Failed => return false,
+                MatchResult::Success => {
+                    current_state += 1;
+                },
+                MatchResult::Repeat => {}
+            }
+            prev_match = next_match
+
         }
 
         return if current_state < self.fsm.len() {
@@ -108,7 +158,8 @@ impl Reggex {
 
     fn get_default_state(&self) -> usize {
         let default_state = 0;
-        if matches!(self.fsm[default_state].match_char('^'), MatchResult::NEXT) {
+        let prev_match = MatchResult::Success;
+        if matches!(self.fsm[default_state].match_char(&'^', prev_match), MatchResult::Success) {
             default_state + 1
         } else {
             default_state
@@ -116,7 +167,8 @@ impl Reggex {
     }
 
     fn match_line_end(&self, current_state: usize) -> bool {
+        let prev_match = MatchResult::Success;
         current_state == self.fsm.len() - 1 &&
-        matches!(self.fsm[current_state].match_char('$'), MatchResult::NEXT)
+        matches!(self.fsm[current_state].match_char(&'$', prev_match), MatchResult::Success)
     }
 }

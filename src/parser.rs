@@ -1,4 +1,5 @@
 use crate::token::Token;
+use crate::token::MatchType;
 
 use itertools::MultiPeek;
 use std::str::Chars;
@@ -9,15 +10,7 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
 
     let mut iter = multipeek(exp.chars());
     while iter.peek() != None {
-        match parse_token(&mut iter) {
-            Some(token) => {
-                tokens.push(token);
-            },
-            None => {
-                println!("Unknown token");
-                unreachable!()
-            }
-        }
+        parse_token(&mut iter).map(|token| tokens.push(token));
     }
 
     return tokens;
@@ -26,10 +19,11 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
 fn parse_token(iter: &mut MultiPeek<Chars>) -> Option<Token> {
     match advance(iter, 1) {
         Some(c) => {
+            let match_type = find_match_type(iter);
             match c {
                 ' ' | '\t' | '\n'=> None,
-                'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '^' | '$' => Some(Token::SingleMatch(c)),
-                '.' => Some(Token::RangeMatch('!' as u8 .. '~' as u8)),
+                'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '^' | '$' => Some(Token::SingleMatch(c, match_type)),
+                '.' => Some(Token::RangeMatch('!' as u8 .. '~' as u8, match_type)),
                 _ => None
             }
         }
@@ -43,4 +37,17 @@ fn advance(iter: &mut MultiPeek<Chars>, amount: u32) -> Option<char> {
         next_char = iter.next();
     }
     next_char
+}
+
+fn find_match_type(iter: &mut MultiPeek<Chars>) -> MatchType {
+    match iter.peek() {
+        Some(c) => {
+            match c {
+                '*' => MatchType::NoneOrMany,
+                '+' => MatchType::OneOrMany,
+                _ => MatchType::Regular
+            }
+        }
+        None => MatchType::Regular
+    }
 }
