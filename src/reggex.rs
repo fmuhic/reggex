@@ -30,15 +30,7 @@ impl Matcher for SimpleMatcher {
         match simple_match(&self.state, iter) {
             MatchResult::Success => match &self.next {
                 Some(next_matcher) => next_matcher.match_exp(iter),
-                None => {
-                    match iter.peek() {
-                        Some(c) => {
-                            println!("More characters availabel to match, stopped at {}", c);
-                            MatchResult::Failed
-                        },
-                        None => MatchResult::Success
-                    }
-                }
+                None => MatchResult::Success
             },
             _ => MatchResult::Failed
         }
@@ -110,6 +102,7 @@ fn simple_match(state: &State, iter: &mut MultiPeek<Chars>) -> MatchResult {
         iter.next();
         MatchResult::Success
     } else {
+        iter.reset_peek();
         MatchResult::Failed
     }
 }
@@ -137,9 +130,18 @@ impl Reggex {
     }
 
     pub fn matches(&self, exp: &str) -> bool {
-        match self.matcher.match_exp(&mut multipeek(exp.chars())) {
-            MatchResult::Success => true,
+        let iter = &mut multipeek(exp.chars());
+        match self.matcher.match_exp(iter) {
+            MatchResult::Success => match_endline(iter),
             _ => false
         }
+    }
+
+}
+
+fn match_endline(iter: &mut MultiPeek<Chars>) -> bool {
+    match iter.peek() {
+        Some(_) => false,
+        None => true
     }
 }
