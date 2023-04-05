@@ -1,6 +1,4 @@
 use itertools::multipeek;
-use itertools::MultiPeek;
-use std::str::Chars;
 
 use crate::parser::parse_expression;
 use crate::matchers::matcher::{ Matcher, MatchResult };
@@ -21,16 +19,8 @@ impl Reggex {
     pub fn matches(&self, exp: &str) -> bool {
         let iter = &mut multipeek(exp.chars());
         match self.matcher.match_exp(iter, 0) {
-            MatchResult::Success(_) => match_endline(iter),
+            MatchResult::Success(match_len) => match_len == exp.len() as i32,
             _ => false
         }
-    }
-
-}
-
-fn match_endline(iter: &mut MultiPeek<Chars>) -> bool {
-    match iter.peek() {
-        Some(_) => false,
-        None => true
     }
 }

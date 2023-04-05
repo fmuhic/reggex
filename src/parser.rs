@@ -18,22 +18,21 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
 
 fn parse_token(iter: &mut MultiPeek<Chars>) -> Option<Token> {
     match advance(iter, 1) {
-        Some(c) => {
-            match c {
-                ' ' | '\t' | '\n'=> None,
-                '^' => Some(Token::StartToken(find_match_type(iter))),
-                '$' => Some(Token::EndToken(find_match_type(iter))),
-                'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' => Some(Token::SingleMatch(c, find_match_type(iter))),
-                '.' => Some(Token::RangeMatch('!' as u8 .. '~' as u8, find_match_type(iter))),
-                '(' => Some(Token::Complex(parse_subgroup(iter), find_match_type(iter))),
-                _ => None
-            }
+        Some(c) => match c {
+            ' ' | '\t' | '\n'=> None,
+            '^' => Some(Token::StartLine(find_match_type(iter))),
+            '$' => Some(Token::EndLine(find_match_type(iter))),
+            'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' => Some(Token::SingleMatch(c, find_match_type(iter))),
+            '.' => Some(Token::RangeMatch('!' as u8 .. '~' as u8, find_match_type(iter))),
+            '|' => Some(Token::Aleternation),
+            '(' => Some(Token::Complex(parse_subgroup(iter), find_match_type(iter))),
+            _ => None
         }
         None => None
     }
 }
 
-fn advance(iter: &mut MultiPeek<Chars>, amount: u32) -> Option<char> {
+fn advance(iter: &mut MultiPeek<Chars>, amount: usize) -> Option<char> {
     let mut next_char = None;
     for _ in 0..amount {
         next_char = iter.next();
@@ -43,12 +42,10 @@ fn advance(iter: &mut MultiPeek<Chars>, amount: u32) -> Option<char> {
 
 fn find_match_type(iter: &mut MultiPeek<Chars>) -> MatchType {
     let match_type = match iter.peek() {
-        Some(c) => {
-            match c {
-                '*' => MatchType::NoneOrMany,
-                '+' => MatchType::OneOrMany,
-                _ => MatchType::Regular
-            }
+        Some(c) => match c {
+            '*' => MatchType::NoneOrMany,
+            '+' => MatchType::OneOrMany,
+            _ => MatchType::Regular
         }
         None => MatchType::Regular
     };
@@ -57,23 +54,22 @@ fn find_match_type(iter: &mut MultiPeek<Chars>) -> MatchType {
 }
 
 fn parse_subgroup(iter: &mut MultiPeek<Chars>) -> Vec<Token> {
-    let mut group: Vec<char> = Vec::new();
-    let mut next = iter.peek();
-    while next != None {
-        let next_char = next.unwrap();
-        if *next_char == ')' {
-            break;
+    let mut subgroup = Vec::new();
+    let mut parentheses_count = 0;
+
+    let mut next = iter.peek().unwrap();
+    while !(*next == ')' && parentheses_count == 0) {
+        if *next == '(' {
+            parentheses_count += 1;
+        } else if *next == ')' {
+            parentheses_count -= 1;
         }
-        group.push(*next_char);
-        println!("Next is  {:?}", next);
-        next = iter.peek();
+        subgroup.push(*next);
+        next = iter.peek().unwrap();
     }
 
-    for _ in 0..group.len() + 1 {
-        iter.next();
-    }
-        println!("Next one is {:?}", iter.peek());
-    let expression: String = group.into_iter().collect();
+    advance(iter, subgroup.len() + 1);
 
-    parse_expression(&expression)
+    let exp: String = subgroup.into_iter().collect();
+    parse_expression(&exp)
 }

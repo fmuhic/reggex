@@ -9,8 +9,9 @@ pub enum MatchType {
 
 #[derive(Debug)]
 pub enum Token {
-    StartToken(MatchType),
-    EndToken(MatchType),
+    Aleternation,
+    StartLine(MatchType),
+    EndLine(MatchType),
     SingleMatch(char, MatchType),
     MultiMatch(String, MatchType),
     RangeMatch(Range<u8>, MatchType),
