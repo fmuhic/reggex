@@ -5,7 +5,7 @@ use super::matcher::{ Matcher, MatchResult };
 use super::simple_matcher::SimpleMatcher;
 use super::start_line_matcher::StartLineMatcher;
 use super::end_line_matcher::EndLineMatcher;
-use crate::token::Token;
+use crate::token::{Token, TokenType};
 
 pub struct ComplexMatcher {
     states: Vec<Box<dyn Matcher>>,
@@ -41,7 +41,7 @@ impl ComplexMatcher {
         let mut next_link = None;
 
         for t in tokens.iter().rev() {
-            if let Token::Aleternation = t {
+            if let TokenType::Aleternation = t.kind {
                 if let Some(matcher) = next_link {
                     states.push(matcher);
                     next_link = None;
@@ -49,14 +49,14 @@ impl ComplexMatcher {
                 continue
             }
 
-            let matcher: Box<dyn Matcher> = match t {
-                Token::Complex(token_list, match_type) => {
+            let matcher: Box<dyn Matcher> = match &t.kind {
+                TokenType::Complex(token_list) => {
                     Box::new(ComplexMatcher::from_list(token_list, next_link))
                 }
-                Token::StartLine(match_type) => {
+                TokenType::StartLine => {
                     Box::new(StartLineMatcher::new(next_link))
                 }
-                Token::EndLine(match_type) => {
+                TokenType::EndLine => {
                     Box::new(EndLineMatcher::new(next_link))
                 }
                 _ => Box::new(SimpleMatcher::from_token(t, next_link))

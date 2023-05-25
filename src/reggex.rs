@@ -11,7 +11,6 @@ pub struct Reggex {
 impl Reggex {
     pub fn new(exp: &str) -> Reggex {
         let tokens = parse_expression(exp);
-        println!("tokens {:?}", tokens);
         let matcher = ComplexMatcher::from_list(&tokens, None);
         Reggex { matcher }
     }

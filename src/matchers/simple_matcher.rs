@@ -2,9 +2,9 @@ use itertools::MultiPeek;
 use std::str::Chars;
 
 use super::matcher::State;
-use super::matcher::{ Matcher, MatchResult, simple_match };
+use super::matcher::{ Matcher, MatchResult };
 use crate::constant::STATE_SIZE;
-use crate::token::Token;
+use crate::token::{Token, TokenType};
 
 pub struct SimpleMatcher {
     state: State,
@@ -26,23 +26,37 @@ impl Matcher for SimpleMatcher {
 
 impl SimpleMatcher {
     pub fn from_token(token: &Token, next_matcher: Option<Box<dyn Matcher>>) -> SimpleMatcher {
-        match token {
-            Token::SingleMatch(ch, match_type) => {
+        match &token.kind {
+            TokenType::SingleMatch(ch) => {
                 let mut state = [0; STATE_SIZE];
                 state[*ch as usize] = 1;
                 SimpleMatcher { state, next: next_matcher }
             }
-            Token::RangeMatch(range, match_type) => {
+            TokenType::RangeMatch(range) => {
                 #[allow(unused_mut)]
                 let mut state: [u8; 130] = core::array::from_fn(|i| {
                     if range.contains(&(i as u8)) { 1 } else { 0 }
                 });
                 SimpleMatcher { state, next: next_matcher }
             }
-            _ => {
-                unreachable!("Token processor not implemented");
+            t => {
+                unreachable!("Token processor not implemented for token {:?}", t);
             }
         }
     }
 }
 
+
+pub fn simple_match(state: &State, iter: &mut MultiPeek<Chars>, count: i32) -> bool {
+    match &iter.peek() {
+        Some(&c) => {
+            println!("Matching char '{}', current count is {}", c, count);
+            iter.next();
+            state[c as usize] == 1
+        }
+        None => {
+            iter.reset_peek();
+            false
+        }
+    }
+}
