@@ -23,6 +23,7 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
                         },
                         TokenType::OneOrMany => {
                             last.t_match = TokenMatch::MultiMatch;
+                            last.min_match += 1;
                         },
                         _ => {
                             if last.kind == t.kind {

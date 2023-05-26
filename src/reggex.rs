@@ -3,6 +3,7 @@ use itertools::multipeek;
 use crate::parser::parse_expression;
 use crate::matchers::matcher::{ Matcher, MatchResult };
 use crate::matchers::complex_matcher::ComplexMatcher;
+use crate::token::TokenMatch;
 
 pub struct Reggex {
     matcher: ComplexMatcher
@@ -11,7 +12,8 @@ pub struct Reggex {
 impl Reggex {
     pub fn new(exp: &str) -> Reggex {
         let tokens = parse_expression(exp);
-        let matcher = ComplexMatcher::from_list(&tokens, None);
+        println!("tokens: {:?}", tokens);
+        let matcher = ComplexMatcher::from_list(&tokens, TokenMatch::Regular, 1, None);
         Reggex { matcher }
     }
 

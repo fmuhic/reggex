@@ -4,10 +4,12 @@ use std::str::Chars;
 use super::matcher::State;
 use super::matcher::{ Matcher, MatchResult };
 use crate::constant::STATE_SIZE;
-use crate::token::{Token, TokenType};
+use crate::token::{Token, TokenType, TokenMatch};
 
 pub struct SimpleMatcher {
     state: State,
+    match_type: TokenMatch,
+    min_match_amount: i32,
     next: Option<Box<dyn Matcher>>
 }
 
@@ -30,14 +32,24 @@ impl SimpleMatcher {
             TokenType::SingleMatch(ch) => {
                 let mut state = [0; STATE_SIZE];
                 state[*ch as usize] = 1;
-                SimpleMatcher { state, next: next_matcher }
+                SimpleMatcher {
+                    state,
+                    next: next_matcher,
+                    match_type: token.t_match,
+                    min_match_amount: token.min_match
+                }
             }
             TokenType::RangeMatch(range) => {
                 #[allow(unused_mut)]
                 let mut state: [u8; 130] = core::array::from_fn(|i| {
                     if range.contains(&(i as u8)) { 1 } else { 0 }
                 });
-                SimpleMatcher { state, next: next_matcher }
+                SimpleMatcher {
+                    state,
+                    next: next_matcher,
+                    match_type: token.t_match,
+                    min_match_amount: token.min_match
+                }
             }
             t => {
                 unreachable!("Token processor not implemented for token {:?}", t);
