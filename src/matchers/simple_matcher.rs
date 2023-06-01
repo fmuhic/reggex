@@ -15,12 +15,41 @@ pub struct SimpleMatcher {
 
 impl Matcher for SimpleMatcher {
     fn match_exp(&self, iter: &mut MultiPeek<Chars>, match_count: i32) -> MatchResult {
-        match simple_match(&self.state, iter, match_count) {
-            true => match &self.next {
-                Some(next_matcher) => next_matcher.match_exp(iter, match_count + 1),
-                None => MatchResult::Success(match_count + 1)
-            },
-            false => MatchResult::Failed(match_count)
+        let mut running_count = match_count;
+        match self.match_type {
+            TokenMatch::Regular => {
+                for _ in 0..self.min_match_amount {
+                    match simple_match(&self.state, iter) {
+                        true => {
+                            running_count += 1
+                        }
+                        false => return MatchResult::Failed(running_count)
+                    }
+                }
+            }
+            TokenMatch::MultiMatch => {
+                let mut attempt = 0;
+                loop {
+                    match simple_match(&self.state, iter) {
+                        true => {
+                            running_count += 1
+                        }
+                        false => {
+                            if attempt >= self.min_match_amount {
+                                break
+                            } else {
+                                return MatchResult::Failed(running_count)
+                            }
+                        }
+                    }
+                    attempt += 1;
+                }
+            }
+        }
+
+        match &self.next {
+            Some(next_matcher) => return next_matcher.match_exp(iter, running_count),
+            None => return MatchResult::Success(running_count)
         }
     }
 }
@@ -59,12 +88,16 @@ impl SimpleMatcher {
 }
 
 
-pub fn simple_match(state: &State, iter: &mut MultiPeek<Chars>, count: i32) -> bool {
+pub fn simple_match(state: &State, iter: &mut MultiPeek<Chars>) -> bool {
     match &iter.peek() {
         Some(&c) => {
-            println!("Matching char '{}', current count is {}", c, count);
-            iter.next();
-            state[c as usize] == 1
+            if state[c as usize] == 1 {
+                iter.next();
+                true
+            } else {
+                iter.reset_peek();
+                false
+            }
         }
         None => {
             iter.reset_peek();

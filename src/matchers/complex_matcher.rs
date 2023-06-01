@@ -1,4 +1,4 @@
-use itertools::{MultiPeek, Itertools};
+use itertools::MultiPeek;
 use std::str::Chars;
 
 use super::matcher::{ Matcher, MatchResult };
@@ -6,6 +6,7 @@ use super::simple_matcher::SimpleMatcher;
 use super::start_line_matcher::StartLineMatcher;
 use super::end_line_matcher::EndLineMatcher;
 use crate::token::{Token, TokenType, TokenMatch};
+use crate::parser::advance;
 
 pub struct ComplexMatcher {
     states: Vec<Box<dyn Matcher>>,
@@ -22,25 +23,34 @@ impl Matcher for ComplexMatcher {
                 for _ in 0..self.min_match_amount {
                     match self.match_regular(iter, running_count) {
                         MatchResult::Success(count) => { running_count = count }
-                        MatchResult::Failed(count) => return MatchResult::Success(count)
+                        MatchResult::Failed(count) => return MatchResult::Failed(count)
                     }
                 }
-                return MatchResult::Success(match_count)
+
+                return match &self.next {
+                    Some(next_matcher) => next_matcher.match_exp(iter, running_count),
+                    None => MatchResult::Success(running_count)
+                }
             }
             TokenMatch::MultiMatch => {
-                let mut attemp = 0;
+                let mut attempt = 0;
                 loop {
                     match self.match_regular(iter, running_count) {
-                        MatchResult::Success(count) => { running_count = count }
+                        MatchResult::Success(count) => {
+                            running_count = count
+                        }
                         MatchResult::Failed(count) => {
-                            if attemp >= self.min_match_amount {
-                                return MatchResult::Success(count)
+                            if attempt >= self.min_match_amount {
+                                 return match &self.next {
+                                     Some(next_matcher) => next_matcher.match_exp(iter, running_count),
+                                     None => MatchResult::Success(running_count)
+                                 }
                             } else {
                                 return MatchResult::Failed(count)
                             }
                         }
                     }
-                    attemp += 1;
+                    attempt += 1;
                 }
             }
         };
@@ -87,15 +97,10 @@ impl ComplexMatcher {
         let mut result = MatchResult::Success(match_count);
         for state in self.states.iter().rev() {
             let mut current_iter = iter.clone();
-            result = match state.match_exp(&mut current_iter, match_count) {
-                MatchResult::Success(count) => match &self.next {
-                    Some(next_matcher) => next_matcher.match_exp(&mut current_iter, count),
-                    None => MatchResult::Success(count)
-                }
-                MatchResult::Failed(count) => MatchResult::Failed(count)
-            };
+            result = state.match_exp(&mut current_iter, match_count);
 
-            if let MatchResult::Success(_) = result {
+            if let MatchResult::Success(new_count) = result {
+                advance(iter, (new_count - match_count) as usize);
                 return result
             }
         }

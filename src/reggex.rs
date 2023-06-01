@@ -12,7 +12,7 @@ pub struct Reggex {
 impl Reggex {
     pub fn new(exp: &str) -> Reggex {
         let tokens = parse_expression(exp);
-        println!("tokens: {:?}", tokens);
+        // println!("tokens: {:#?}", tokens);
         let matcher = ComplexMatcher::from_list(&tokens, TokenMatch::Regular, 1, None);
         Reggex { matcher }
     }
@@ -20,7 +20,9 @@ impl Reggex {
     pub fn matches(&self, exp: &str) -> bool {
         let iter = &mut multipeek(exp.chars());
         match self.matcher.match_exp(iter, 0) {
-            MatchResult::Success(match_len) => match_len == exp.len() as i32,
+            MatchResult::Success(match_len) => {
+                match_len == exp.len() as i32
+            }
             _ => false
         }
     }

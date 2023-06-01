@@ -22,8 +22,11 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
                             last.min_match -= 1;
                         },
                         TokenType::OneOrMany => {
+                            match last.t_match {
+                                TokenMatch::Regular => {}
+                                TokenMatch::MultiMatch => last.min_match += 1
+                            }
                             last.t_match = TokenMatch::MultiMatch;
-                            last.min_match += 1;
                         },
                         _ => {
                             if last.kind == t.kind {
@@ -40,9 +43,6 @@ pub fn parse_expression(exp: &str) -> Vec<Token> {
         });
     }
 
-    for t in &tokens {
-        println!("Token {:?}", t)
-    }
     tokens
 }
 
@@ -64,7 +64,7 @@ fn parse_token(iter: &mut MultiPeek<Chars>) -> Option<Token> {
     }
 }
 
-fn advance(iter: &mut MultiPeek<Chars>, amount: usize) -> Option<char> {
+pub fn advance(iter: &mut MultiPeek<Chars>, amount: usize) -> Option<char> {
     let mut next_char = None;
     for _ in 0..amount {
         next_char = iter.next();
